@@ -221,7 +221,7 @@ class RecordStore(object):
 
     def call_get_record_values(self, **kwargs):
         """
-        Call the server's getRecordValues endpoint to update the local record store. The keyword arguments map
+        Call the server's syncRecordValues endpoint to update the local record store. The keyword arguments map
         table names into lists of (or singular) record IDs to load for that table. Use True to refresh all known
         records for that table.
         """
@@ -243,21 +243,22 @@ class RecordStore(object):
                 )
                 continue
 
-            requestlist += [{"table": table, "id": extract_id(id)} for id in ids]
+            requestlist += [{"pointer": {"table": table, "id": extract_id(id)}, "version": -1} for id in ids]
 
         if requestlist:
             logger.debug(
-                "Calling 'getRecordValues' endpoint for requests: {}".format(
+                "Calling 'syncRecordValues' endpoint for requests: {}".format(
                     requestlist
                 )
             )
             results = self._client.post(
-                "getRecordValues", {"requests": requestlist}
-            ).json()["results"]
-            for request, result in zip(requestlist, results):
+                "syncRecordValues", {"requests": requestlist}
+            ).json()["recordMap"]
+            resultlist = [vv for v in list(results.values()) for vv in list(v.values())]
+            for request, result in zip(requestlist, resultlist):
                 self._update_record(
-                    request["table"],
-                    request["id"],
+                    request["pointer"]["table"],
+                    request["pointer"]["id"],
                     value=result.get("value"),
                     role=result.get("role"),
                 )
